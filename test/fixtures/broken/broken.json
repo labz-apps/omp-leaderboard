@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "runId": "broken-fixture",
+  "benchmark": "cold-start",
+  "startedAt": "2026-01-05T09:00:00.000Z",
+  "finishedAt": "2026-01-05T09:04:12.000Z",
+  "commit": {
+    "repo": "labz-apps/oh-my-pi"
+  },
+  "pr": null,
+  "machine": {
+    "id": "",
+    "cpuModel": "fixture",
+    "physicalCores": 0,
+    "memoryGb": 0,
+    "os": "",
+    "arch": ""
+  },
+  "versions": {},
+  "harness": {},
+  "metrics": {}
+}

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-cold-start-unmerged",
+  "benchmark": "cold-start",
+  "startedAt": "2026-03-20T08:00:00.000Z",
+  "finishedAt": "2026-03-20T08:03:40.000Z",
+  "commit": {
+    "sha": "5555555555555555555555555555555555555555",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "perf(tui): warm the snapshot store during boot"
+  },
+  "pr": null,
+  "machine": {
+    "id": "fixture-linux-x86",
+    "cpuModel": "AMD EPYC 7B12 (fixture)",
+    "physicalCores": 8,
+    "memoryGb": 16,
+    "os": "Ubuntu 24.04 (fixture)",
+    "arch": "x86_64"
+  },
+  "versions": {
+    "ohMyPi": "18.5.0",
+    "runtime": "bun",
+    "runtimeVersion": "1.2.21"
+  },
+  "harness": {
+    "version": "1",
+    "command": "bun scripts/bench/cold-start.ts --runs 20 --fixture",
+    "config": {
+      "runs": 20,
+      "warmupRuns": 2,
+      "coldCache": true
+    }
+  },
+  "metrics": {
+    "firstInteractiveFrameMs": {
+      "unit": "ms",
+      "p50": 741.2,
+      "p95": 988.5,
+      "samples": 20,
+      "min": 690.4,
+      "max": 1042.9
+    }
+  }
+}

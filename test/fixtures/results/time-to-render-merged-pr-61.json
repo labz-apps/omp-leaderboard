@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-ttr-run-1",
+  "benchmark": "time-to-render",
+  "startedAt": "2026-02-20T14:00:00.000Z",
+  "finishedAt": "2026-02-20T14:06:02.000Z",
+  "commit": {
+    "sha": "3333333333333333333333333333333333333333",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "perf(tui): batch input handling into a single frame"
+  },
+  "pr": {
+    "number": 61,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/61",
+    "title": "perf(tui): batch input handling into a single frame",
+    "mergedAt": "2026-02-20T14:05:00.000Z"
+  },
+  "machine": {
+    "id": "fixture-linux-x86",
+    "cpuModel": "AMD EPYC 7B12 (fixture)",
+    "physicalCores": 8,
+    "memoryGb": 16,
+    "os": "Ubuntu 24.04 (fixture)",
+    "arch": "x86_64"
+  },
+  "versions": {
+    "ohMyPi": "18.4.11",
+    "runtime": "bun",
+    "runtimeVersion": "1.2.21"
+  },
+  "harness": {
+    "version": "1",
+    "command": "bun scripts/bench/time-to-render.ts --runs 200 --fixture",
+    "config": {
+      "runs": 200,
+      "warmupRuns": 10
+    }
+  },
+  "metrics": {
+    "inputToPaintMs": {
+      "unit": "ms",
+      "p50": 24.6,
+      "p95": 38.1,
+      "samples": 200,
+      "min": 12.2,
+      "max": 71.4
+    }
+  }
+}

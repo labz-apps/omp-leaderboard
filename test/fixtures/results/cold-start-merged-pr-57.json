@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-cold-start-run-2",
+  "benchmark": "cold-start",
+  "startedAt": "2026-02-11T10:00:00.000Z",
+  "finishedAt": "2026-02-11T10:05:31.000Z",
+  "commit": {
+    "sha": "2222222222222222222222222222222222222222",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "perf(tui): render the first frame before the model catalog resolves"
+  },
+  "pr": {
+    "number": 57,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/57",
+    "title": "perf(tui): render the first frame before the model catalog resolves",
+    "mergedAt": "2026-02-11T10:04:00.000Z"
+  },
+  "machine": {
+    "id": "fixture-linux-x86",
+    "cpuModel": "AMD EPYC 7B12 (fixture)",
+    "physicalCores": 8,
+    "memoryGb": 16,
+    "os": "Ubuntu 24.04 (fixture)",
+    "arch": "x86_64"
+  },
+  "versions": {
+    "ohMyPi": "18.4.11",
+    "runtime": "bun",
+    "runtimeVersion": "1.2.21"
+  },
+  "harness": {
+    "version": "1",
+    "command": "bun scripts/bench/cold-start.ts --runs 20 --fixture",
+    "config": {
+      "runs": 20,
+      "warmupRuns": 2,
+      "coldCache": true
+    }
+  },
+  "metrics": {
+    "firstInteractiveFrameMs": {
+      "unit": "ms",
+      "p50": 812.7,
+      "p95": 1103.2,
+      "samples": 20,
+      "min": 731.4,
+      "max": 1190.8
+    }
+  }
+}

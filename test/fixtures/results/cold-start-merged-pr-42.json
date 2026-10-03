@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-cold-start-run-1",
+  "benchmark": "cold-start",
+  "startedAt": "2026-01-05T09:00:00.000Z",
+  "finishedAt": "2026-01-05T09:04:12.000Z",
+  "commit": {
+    "sha": "1111111111111111111111111111111111111111",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "perf(coding-agent): drop the startup animation and first-run wizard"
+  },
+  "pr": {
+    "number": 42,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/42",
+    "title": "perf(coding-agent): drop the startup animation and first-run wizard",
+    "mergedAt": "2026-01-05T09:03:00.000Z"
+  },
+  "machine": {
+    "id": "fixture-linux-x86",
+    "cpuModel": "AMD EPYC 7B12 (fixture)",
+    "physicalCores": 8,
+    "memoryGb": 16,
+    "os": "Ubuntu 24.04 (fixture)",
+    "arch": "x86_64"
+  },
+  "versions": {
+    "ohMyPi": "18.4.9",
+    "runtime": "bun",
+    "runtimeVersion": "1.2.21"
+  },
+  "harness": {
+    "version": "1",
+    "command": "bun scripts/bench/cold-start.ts --runs 20 --fixture",
+    "config": {
+      "runs": 20,
+      "warmupRuns": 2,
+      "coldCache": true
+    }
+  },
+  "metrics": {
+    "firstInteractiveFrameMs": {
+      "unit": "ms",
+      "p50": 1180.4,
+      "p95": 1642.9,
+      "samples": 20,
+      "min": 1042.1,
+      "max": 1701.6
+    }
+  }
+}

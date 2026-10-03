@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-ttr-run-2",
+  "benchmark": "time-to-render",
+  "startedAt": "2026-03-08T16:00:00.000Z",
+  "finishedAt": "2026-03-08T16:07:44.000Z",
+  "commit": {
+    "sha": "4444444444444444444444444444444444444444",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "perf(tui): skip the redundant style recompute on repaint"
+  },
+  "pr": {
+    "number": 74,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/74",
+    "title": "perf(tui): skip the redundant style recompute on repaint",
+    "mergedAt": "2026-03-08T16:06:00.000Z"
+  },
+  "machine": {
+    "id": "fixture-linux-x86",
+    "cpuModel": "AMD EPYC 7B12 (fixture)",
+    "physicalCores": 8,
+    "memoryGb": 16,
+    "os": "Ubuntu 24.04 (fixture)",
+    "arch": "x86_64"
+  },
+  "versions": {
+    "ohMyPi": "18.4.11",
+    "runtime": "bun",
+    "runtimeVersion": "1.2.21"
+  },
+  "harness": {
+    "version": "1",
+    "command": "bun scripts/bench/time-to-render.ts --runs 200 --fixture",
+    "config": {
+      "runs": 200,
+      "warmupRuns": 10
+    }
+  },
+  "metrics": {
+    "inputToPaintMs": {
+      "unit": "ms",
+      "p50": 19.8,
+      "p95": 27.4,
+      "samples": 200,
+      "min": 9.8,
+      "max": 52.6
+    }
+  }
+}

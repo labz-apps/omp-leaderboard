@@ -52,6 +52,9 @@ This is the local stand-in for "the Pages site serves". It runs, in order:
 5. an assertion that every local asset reference on both pages is relative;
 6. a real HTTP server mounted at `/omp-leaderboard/` serving the build,
    checking `/`, both pages, every asset, the JSON, and the 404 fallback;
+   (the tests additionally publish the build to a throwaway bare git repository
+   to prove the `gh-pages` path works, and check every workflow for the shape it
+   needs and for scripts that do not exist);
 7. a build from an empty result set, proving the site degrades gracefully;
 8. builds from a synthetic result and an unprovenanced result, both of which
    must fail;
@@ -80,6 +83,32 @@ fails the PR if a result file is malformed or the site would break.
 Pages serves `dist/` verbatim. `dist/.nojekyll` is written so Jekyll does not
 strip any path, and there is no 404 redirect trick — every real page is a real
 file.
+
+### The second publish path: a `gh-pages` branch
+
+If the Actions Pages integration is not available — an empty repository, Pages
+never enabled, or a repository whose Pages source cannot be switched to GitHub
+Actions — the same build can be published to a `gh-pages` branch instead:
+
+```bash
+npm run deploy:gh-pages          # builds, then force-updates origin/gh-pages
+```
+
+Then set **Settings → Pages → Source → Deploy from a branch → `gh-pages` /
+`(root)`**.
+
+That path is real code with tests, not a note in a README:
+`src/deploy-gh-pages.mjs` builds, refuses to publish an empty tree, resolves the
+remote's push URL, commits the build as a single-commit snapshot in a throwaway
+checkout, and pushes it. `test/deploy.test.mjs` runs it against a throwaway bare
+repository and asserts the branch contains exactly the build (no source code, no
+git internals), that a republish replaces the previous build instead of
+accumulating files, that a dry run pushes nothing, that a missing remote fails
+before any push, and that an unsafe branch or remote name is refused.
+
+`gh-pages.yml` runs it in CI on demand. It is deliberately `workflow_dispatch`
+only: two workflows publishing on every push would make it ambiguous which build
+Pages is serving, and `test/workflows.test.mjs` fails if that ever changes.
 
 ## Adding a measurement
 

@@ -1,0 +1,45 @@
+# Publish the built site to a `gh-pages` branch.
+#
+# Second publish path, for when the Actions Pages integration is unavailable:
+# an empty repository, Pages not yet enabled, or a repository whose Pages source
+# cannot be switched to GitHub Actions. The branch holds exactly one build.
+#
+# `pages.yml` is the default path. Use this one only when that is not an
+# option: set Pages → Source → Deploy from a branch → gh-pages / (root).
+#
+# Manual by design. Running both workflows on every push would publish the same
+# build twice and make it unclear which setting is actually serving.
+
+name: gh-pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify before publishing
+        run: npm run verify
+
+      - name: Build and push the gh-pages branch
+        run: node src/deploy-gh-pages.mjs --branch gh-pages --remote origin
+
+      - name: Report what is now on the branch
+        run: |
+          git fetch --quiet origin gh-pages
+          echo "gh-pages now contains:"
+          git ls-tree -r --name-only origin/gh-pages

@@ -17,6 +17,13 @@ measurements within one release, and nobody can tell which entries were real.
 - `npm run verify` gates the deploy: unit tests, fixture build, relative-asset
   assertions, an HTTP serve check under a project Pages base path, an
   empty-data build, and rejection of synthetic or unprovenanced result files.
+- Second publish path: `npm run deploy:gh-pages` publishes the same build to a
+  `gh-pages` branch, and `gh-pages.yml` runs it on demand for repositories that
+  cannot use the Actions Pages integration. Tested against a throwaway bare
+  repository rather than described in prose.
+- Workflow tests assert the deploy wiring, permissions, triggers, and that every
+  script a workflow calls actually exists — the classic silent failure where a
+  workflow calls a renamed script and only fails after merge.
 
 ## Reading the generated changelog
 

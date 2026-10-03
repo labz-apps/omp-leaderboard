@@ -112,6 +112,28 @@ test("verifyLive retries a transient failure and then reports it", async () => {
   assert.match(logs.at(-1), /not serving the build after/);
 });
 
+test("a doubled trailing slash is normalized, not checked literally", async () => {
+  const work = await mkdtemp(join(tmpdir(), "omp-live-slash-"));
+  const out = join(work, "dist");
+  try {
+    await buildTo(repoRoot, out);
+    const server = await startStaticServer({ root: out, basePath: "/omp-leaderboard/" });
+    try {
+      const once = await checkLiveSite(server.url);
+      const doubled = await checkLiveSite(`${server.url}/`);
+      assert.equal(doubled.ok, once.ok);
+      assert.equal(doubled.ok, true, "a doubled slash changed the outcome");
+      for (const result of doubled.results) {
+        assert.ok(!result.url.includes("//omp"), `checked a literal double-slash path: ${result.url}`);
+      }
+    } finally {
+      await server.close();
+    }
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+});
+
 test("the CLI parses --url and its documented flags", () => {
   assert.deepEqual(parseArgs(["--url", "https://x.github.io/y/"]), { url: "https://x.github.io/y/" });
   assert.deepEqual(parseArgs(["--url=https://x/"]), { url: "https://x/" });

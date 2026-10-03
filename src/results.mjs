@@ -9,8 +9,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ValidationError, isPublishableRun, resultId, shortSha } from "./schema.mjs";
-import { sortRuns } from "./deltas.mjs";
+import { ValidationError, countsTowardSeries, isContendedRun, isPublishableRun, resultId, shortSha, unpublishableReason } from "./schema.mjs";
+import { buildType, sortRuns } from "./deltas.mjs";
 
 /**
  * @param {string} resultsDir
@@ -55,9 +55,10 @@ export async function loadResults(resultsDir) {
     doc_.sourceFile = file;
     doc_.id = resultId(doc_);
     doc_.publishable = isPublishableRun(doc_);
-    if (!doc_.publishable) {
-      skipped.push({ file, reason: "no merged PR yet, so it cannot appear as a leaderboard row" });
-    }
+    doc_.contended = isContendedRun(doc_);
+    doc_.comparable = countsTowardSeries(doc_);
+    const reason = unpublishableReason(doc_);
+    if (reason) skipped.push({ file, reason });
     runs.push(doc_);
   }
 
@@ -74,12 +75,13 @@ export async function loadResults(resultsDir) {
 /**
  * The merged-improvement history: newest first, one entry per merged PR.
  * This is the changelog the site renders, and it is derived purely from
- * provenanced runs rather than maintained by hand.
+ * provenanced runs rather than maintained by hand. A contended run is recorded
+ * but excluded: its delta is an artefact of who else was using the machine.
  *
  * @param {Record<string, any>[]} runs
  */
 export function buildChangelog(runs) {
-  const publishable = runs.filter((run) => run.publishable);
+  const publishable = runs.filter((run) => countsTowardSeries(run));
 
   // One entry per merged PR, keeping the newest measurement for each metric.
   /** @type {Map<number, any>} */
@@ -117,6 +119,7 @@ export function buildChangelog(runs) {
           metric: metricName,
           machineId: run.machine.id,
           machine: run.machine,
+          build: buildType(run),
           p50: metric.p50,
           p95: metric.p95,
           samples: metric.samples,

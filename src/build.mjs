@@ -15,7 +15,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildChangelog, loadResults } from "./results.mjs";
-import { buildSeries } from "./deltas.mjs";
+import { assertNoIntegrityConflicts, buildSeries, comparableRuns, findIntegrityConflicts } from "./deltas.mjs";
 import { render404, renderChangelog, renderIndex } from "./render.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -77,13 +77,19 @@ export async function build(options = {}) {
     throw new Error(`${errors.length} result file(s) failed validation:\n${details}`);
   }
 
-  // Deltas are attached here, before rendering, so every consumer (leaderboard
-  // rows, charts, changelog) reads the same computed numbers.
-  const publishable = runs.filter((run) => run.publishable);
-  const series = buildSeries(publishable);
-  const changelog = buildChangelog(publishable);
+  // Cross-file integrity: an overlapping pair of runs of one benchmark on one
+  // machine id cannot be rendered as a comparison, so the build refuses.
+  assertNoIntegrityConflicts(runs);
+  const { notes: integrityNotes } = findIntegrityConflicts(runs);
 
-  const meta = { generatedAt, sourceRepo, runCount: runs.length, preview };
+  // Deltas are attached here, before rendering, so every consumer (leaderboard
+  // rows, charts, changelog) reads the same computed numbers. Only runs that
+  // are on a merged PR and had the machine to themselves are eligible.
+  const comparable = comparableRuns(runs);
+  const series = buildSeries(comparable);
+  const changelog = buildChangelog(comparable);
+
+  const meta = { generatedAt, sourceRepo, runCount: runs.length, preview, integrityNotes };
 
   await rm(outDir, { recursive: true, force: true });
   await mkdir(join(outDir, "assets"), { recursive: true });
@@ -113,6 +119,9 @@ export async function build(options = {}) {
           benchmark: run.benchmark,
           runId: run.runId,
           publishable: run.publishable,
+          contended: run.contended === true,
+          comparable: run.comparable === true,
+          startedAt: run.startedAt,
           finishedAt: run.finishedAt,
           commit: run.commit,
           pr: run.pr,
@@ -126,8 +135,10 @@ export async function build(options = {}) {
           key,
           benchmark: entry.benchmark,
           machine: entry.machine,
+          build: entry.build,
           runIds: entry.runs.map((run) => run.id),
         })),
+        integrityNotes: integrityNotes.map((note) => ({ kind: note.kind, message: note.message, runIds: note.runIds })),
       },
       null,
       2,
@@ -141,8 +152,10 @@ export async function build(options = {}) {
   return {
     outDir,
     runCount: runs.length,
-    publishableCount: publishable.length,
+    publishableCount: comparable.length,
     changelogEntries: changelog.length,
+    seriesCount: series.size,
+    integrityNotes,
     skipped,
   };
 }

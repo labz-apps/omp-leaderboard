@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "runId": "fixture-cold-start-run-2",
+  "runId": "fixture-cold-start-contended",
   "benchmark": "cold-start",
-  "startedAt": "2026-02-11T10:00:00.000Z",
-  "finishedAt": "2026-02-11T10:05:31.000Z",
+  "startedAt": "2026-04-02T09:00:00.000Z",
+  "finishedAt": "2026-04-02T09:05:04.000Z",
   "commit": {
-    "sha": "2222222222222222222222222222222222222222",
-    "shaAtFinish": "2222222222222222222222222222222222222222",
+    "sha": "6666666666666666666666666666666666666666",
+    "shaAtFinish": "6666666666666666666666666666666666666666",
     "repo": "labz-apps/oh-my-pi",
-    "message": "perf(tui): render the first frame before the model catalog resolves"
+    "message": "perf(tui): skip the theme scan when the palette matches"
   },
   "pr": {
-    "number": 57,
-    "url": "https://github.com/labz-apps/oh-my-pi/pull/57",
-    "title": "perf(tui): render the first frame before the model catalog resolves",
-    "mergedAt": "2026-02-11T10:04:00.000Z"
+    "number": 81,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/81",
+    "title": "perf(tui): skip the theme scan when the palette matches",
+    "mergedAt": "2026-04-02T09:02:00.000Z"
   },
   "machine": {
     "id": "fixture-linux-x86",
@@ -23,10 +23,10 @@
     "memoryGb": 16,
     "os": "Ubuntu 24.04 (fixture)",
     "arch": "x86_64",
-    "concurrentRuns": 1
+    "concurrentRuns": 2
   },
   "versions": {
-    "ohMyPi": "18.4.11",
+    "ohMyPi": "18.5.0",
     "runtime": "bun",
     "runtimeVersion": "1.2.21"
   },
@@ -43,11 +43,11 @@
   "metrics": {
     "firstInteractiveFrameMs": {
       "unit": "ms",
-      "p50": 812.7,
-      "p95": 1103.2,
+      "p50": 1264.8,
+      "p95": 2011.3,
       "samples": 20,
-      "min": 731.4,
-      "max": 1190.8
+      "min": 1102.4,
+      "max": 2240.7
     }
   }
 }

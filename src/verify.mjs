@@ -14,6 +14,11 @@
  *   5. an empty result set still produces a valid, explanatory site
  *   6. a synthetic or malformed result file fails the build instead of
  *      rendering (the "no hand-entered numbers" rule, enforced)
+ *   7. every published row proves its build type, its commit at finish, and a
+ *      machine it had to itself
+ *   8. a contended run is recorded as evidence and never published
+ *   9. two overlapping runs on one machine, a build type change, and a run whose
+ *      tree moved mid-measurement each behave as the contract requires
  *
  * Fixture data is built into `.verify/`, never into `dist/`, so the published
  * site can only ever contain harness output.
@@ -28,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "./build.mjs";
 import { primaryMetricName } from "./deltas.mjs";
 import { startStaticServer } from "./serve.mjs";
+import { BUILD_TYPE_LIST } from "./schema.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
@@ -139,7 +145,9 @@ async function main() {
 
     await check("every leaderboard row traces to a merged PR and a run id", () => {
       const publishable = json.runs.filter((run) => run.publishable);
-      assert(publishable.length === fixtureSummary.publishableCount, "row count mismatch");
+      const comparable = json.runs.filter((run) => run.comparable);
+      assert(comparable.length === fixtureSummary.publishableCount, "row count mismatch");
+      assert(publishable.length >= comparable.length, "a non-comparable run is claimed as publishable");
       for (const run of publishable) {
         assert(run.pr && typeof run.pr.url === "string" && run.pr.url.startsWith("https://"), "row without an https PR link");
         assert(Number.isInteger(run.pr.number) && run.pr.number > 0, "row without a PR number");
@@ -152,6 +160,62 @@ async function main() {
         assert(Number.isFinite(run.metrics[metricName].p50), "row without a p50");
         assert(Number.isFinite(run.metrics[metricName].p95), "row without a p95");
       }
+    });
+
+    await check("every published row proves build type, commit at finish, and a quiet machine", () => {
+      const published = json.runs.filter((run) => run.comparable);
+      assert(published.length > 0, "no published rows to check");
+      for (const run of published) {
+        assert(
+          BUILD_TYPE_LIST.includes(run.harness.build),
+          `${run.runId} does not record which program was measured`,
+        );
+        assert(
+          run.commit.shaAtFinish === run.commit.sha,
+          `${run.runId} does not prove the tree was on one commit when it finished`,
+        );
+        assert(
+          run.machine.concurrentRuns === 1,
+          `${run.runId} was measured with ${run.machine.concurrentRuns} same-benchmark runs active`,
+        );
+      }
+    });
+
+    await check("no delta crosses a build type or a contended run", () => {
+      for (const entry of json.series) {
+        for (const runId of entry.runIds) {
+          const run = json.runs.find((candidate) => candidate.id === runId);
+          assert(run, `series ${entry.key} references an unknown run ${runId}`);
+          assert(run.harness.build === entry.build, `run ${runId} is in the ${entry.build} series`);
+          assert(run.contended !== true, `contended run ${runId} entered a series`);
+        }
+      }
+      const binaryRun = json.runs.find((run) => run.harness.build === "binary");
+      assert(binaryRun, "the fixture set should contain a second build type to check");
+      assert(
+        binaryRun.delta.firstInteractiveFrameMs.p50Pct === null,
+        "a run that starts a new build series was given a delta against another build type",
+      );
+    });
+
+    await check("a contended run is recorded as evidence and never published", async () => {
+      const contended = json.runs.find((run) => run.contended === true);
+      assert(contended, "the fixture set should contain a contended run to check");
+      assert(contended.publishable === true, "the contended fixture is not on a merged PR");
+      assert(contended.comparable === false, "a contended run became a leaderboard row");
+      assert(contended.delta === null, "a contended run was used as a baseline");
+      const index = await readFile(join(fixtureOut, "index.html"), "utf8");
+      assert(index.includes("Recorded, not published"), "the page does not disclose the contended run");
+      assert(index.includes(contended.commit.sha.slice(0, 7)), "the contended run is not visible as evidence");
+      const changelog = await readFile(join(fixtureOut, "changelog.html"), "utf8");
+      assert(!changelog.includes(`/pull/${contended.pr.number}`), "a contended run entered the changelog");
+    });
+
+    await check("a machine that changed build type says so on the page", () => {
+      const notes = fixtureSummary.integrityNotes.filter((note) => note.kind === "build-switch");
+      assert(notes.length > 0, "the fixture build type change was not reported");
+      assert(indexHtml.includes("Series integrity"), "the page does not report the series split");
+      assert(indexHtml.includes("no delta crosses a build type"), "the page does not explain the split");
     });
 
     await check("deltas are computed, not stored in result files", async () => {
@@ -302,6 +366,58 @@ async function main() {
         assert(/commit\.sha/.test(error.message), `unexpected failure: ${error.message}`);
       }
       assert(threw, "build accepted a result with no commit sha");
+    });
+
+    await check("a result with no recorded build type fails the build", async () => {
+      const dir = join(workDir, "no-build-results");
+      await mkdir(dir, { recursive: true });
+      const base = JSON.parse(await readFile(join(fixtureResults, "cold-start-merged-pr-42.json"), "utf8"));
+      const { build: _ignored, ...harnessWithoutBuild } = base.harness;
+      void _ignored;
+      await writeFile(join(dir, "no-build.json"), JSON.stringify({ ...base, harness: harnessWithoutBuild }), "utf8");
+      let threw = false;
+      try {
+        await build({ outDir: join(workDir, "no-build-dist"), resultsDir: dir, basePath });
+      } catch (error) {
+        threw = true;
+        assert(/harness\.build/.test(error.message), `unexpected failure: ${error.message}`);
+      }
+      assert(threw, "build accepted a result that does not say what was measured");
+    });
+
+    await check("a run whose working tree moved during the run fails the build", async () => {
+      const dir = join(workDir, "moved-tree-results");
+      await mkdir(dir, { recursive: true });
+      const base = JSON.parse(await readFile(join(fixtureResults, "cold-start-merged-pr-42.json"), "utf8"));
+      base.commit.shaAtFinish = "9999999999999999999999999999999999999999";
+      await writeFile(join(dir, "moved.json"), JSON.stringify(base), "utf8");
+      let threw = false;
+      try {
+        await build({ outDir: join(workDir, "moved-tree-dist"), resultsDir: dir, basePath });
+      } catch (error) {
+        threw = true;
+        assert(/shaAtFinish/.test(error.message), `unexpected failure: ${error.message}`);
+      }
+      assert(threw, "build accepted a measurement of a tree that moved underneath it");
+    });
+
+    await check("two overlapping runs on one machine fail the build", async () => {
+      const dir = join(workDir, "overlap-results");
+      await mkdir(dir, { recursive: true });
+      const a = JSON.parse(await readFile(join(fixtureResults, "cold-start-merged-pr-42.json"), "utf8"));
+      const b = JSON.parse(await readFile(join(fixtureResults, "cold-start-merged-pr-57.json"), "utf8"));
+      b.startedAt = "2026-01-05T09:02:00.000Z";
+      b.finishedAt = "2026-01-05T09:07:31.000Z";
+      await writeFile(join(dir, "a.json"), JSON.stringify(a), "utf8");
+      await writeFile(join(dir, "b.json"), JSON.stringify(b), "utf8");
+      let threw = false;
+      try {
+        await build({ outDir: join(workDir, "overlap-dist"), resultsDir: dir, basePath });
+      } catch (error) {
+        threw = true;
+        assert(/run-integrity conflict/.test(error.message), `unexpected failure: ${error.message}`);
+      }
+      assert(threw, "build folded two overlapping runs into one series");
     });
 
     await check("the published dist path never contains fixture data", async () => {

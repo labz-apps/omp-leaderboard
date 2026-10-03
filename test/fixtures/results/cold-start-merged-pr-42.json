@@ -6,6 +6,7 @@
   "finishedAt": "2026-01-05T09:04:12.000Z",
   "commit": {
     "sha": "1111111111111111111111111111111111111111",
+    "shaAtFinish": "1111111111111111111111111111111111111111",
     "repo": "labz-apps/oh-my-pi",
     "message": "perf(coding-agent): drop the startup animation and first-run wizard"
   },
@@ -21,7 +22,8 @@
     "physicalCores": 8,
     "memoryGb": 16,
     "os": "Ubuntu 24.04 (fixture)",
-    "arch": "x86_64"
+    "arch": "x86_64",
+    "concurrentRuns": 1
   },
   "versions": {
     "ohMyPi": "18.4.9",
@@ -29,6 +31,7 @@
     "runtimeVersion": "1.2.21"
   },
   "harness": {
+    "build": "source",
     "version": "1",
     "command": "bun scripts/bench/cold-start.ts --runs 20 --fixture",
     "config": {

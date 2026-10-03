@@ -8,11 +8,17 @@ every merged improvement that was measured to produce it.
 - **No hand-entered numbers.** Every value on the page is read from a harness
   result file in [`data/results/`](data/results). Deltas are computed at build
   time from two provenanced runs and are never stored anywhere.
-- **Every row traces to a merged PR**, a commit, a named machine, the versions
-  involved, and the exact harness command that produced the measurement.
+- **Every row traces to a merged PR**, a commit, a named machine, the build type,
+  the versions involved, and the exact harness command that produced the
+  measurement.
 - **Comparability is enforced, not assumed.** Runs are only ever compared to
-  other runs of the same benchmark on the same machine. Deltas never cross
-  machines, and the machine spec is printed next to every series.
+  other runs of the same benchmark, on the same machine, built the same way, on a
+  machine that had nothing else running. Deltas never cross a machine, never
+  cross a build type, and never use a contended run as a baseline.
+- **Run integrity is enforced, not assumed.** A run records the head it saw
+  when it finished and the number of same-benchmark runs that were active, so a
+  working tree that moved mid-measurement and a machine that was shared are both
+  refusals rather than rows.
 
 ## Pages
 
@@ -46,20 +52,26 @@ This is the local stand-in for "the Pages site serves". It runs, in order:
 
 1. unit tests;
 2. a build from the committed fixtures, so every code path (charts, deltas,
-   changelog, empty state, 404) is exercised without a benchmark machine;
+   changelog, build-type split, contended runs, empty state, 404) is exercised
+   without a benchmark machine;
 3. an assertion that every row traces to a merged PR, a commit, a machine, a
    run id, and a harness command;
-4. an assertion that no result file carries a hand-written `delta`;
-5. an assertion that every local asset reference on both pages is relative;
-6. a real HTTP server mounted at `/omp-leaderboard/` serving the build,
+4. an assertion that every published row records its build type, proves the
+   commit was the same when the run finished, and recorded an uncontended
+   machine;
+5. an assertion that no delta crosses a build type or a contended run;
+6. an assertion that no result file carries a hand-written `delta`;
+7. an assertion that every local asset reference on both pages is relative;
+8. a real HTTP server mounted at `/omp-leaderboard/` serving the build,
    checking `/`, both pages, every asset, the JSON, and the 404 fallback;
    (the tests additionally publish the build to a throwaway bare git repository
-   to prove the `gh-pages` path works, and check every workflow for the shape it
-   needs and for scripts that do not exist);
-7. a build from an empty result set, proving the site degrades gracefully;
-8. builds from a synthetic result and an unprovenanced result, both of which
-   must fail;
-9. a check that fixture data can never reach `dist/`.
+   to prove the `gh-pages` path works, run the importer end to end, and check
+   every workflow for the shape it needs and for scripts that do not exist);
+9. a build from an empty result set, proving the site degrades gracefully;
+10. builds from a synthetic result, an unprovenanced result, a result with no
+    build type, a result whose tree moved during the run, and a pair of
+    overlapping runs on one machine — all of which must fail;
+11. a check that fixture data can never reach `dist/`.
 
 Fixtures build into `.verify/`, never into `dist/`.
 
@@ -187,6 +199,7 @@ never skipped silently.
   "finishedAt": "2026-01-05T09:04:12.000Z",
   "commit": {
     "sha": "1111111...",                               // what was measured
+    "shaAtFinish": "1111111...",                       // head when the run ended; must equal sha
     "repo": "labz-apps/oh-my-pi",
     "message": "perf(coding-agent): drop the startup animation"
   },
@@ -202,10 +215,12 @@ never skipped silently.
     "physicalCores": 8,
     "memoryGb": 16,
     "os": "Ubuntu 24.04",
-    "arch": "x86_64"
+    "arch": "x86_64",
+    "concurrentRuns": 1                                // same-benchmark runs active, including this one
   },
   "versions": { "ohMyPi": "18.4.9", "runtime": "bun", "runtimeVersion": "1.2.21" },
   "harness": {
+    "build": "source",                                // source | bundle | binary
     "version": "1",                                   // bump when measurement semantics change
     "command": "bun scripts/bench/cold-start.ts --runs 20",
     "config": { "runs": 20, "warmupRuns": 2, "coldCache": true }
@@ -228,23 +243,34 @@ Rules the build enforces:
 | rule | what happens if it is broken |
 | --- | --- |
 | commit sha, repo, machine id, versions, harness version and command are present | build fails |
+| `commit.shaAtFinish` is present and equals `commit.sha` | build fails — the tree moved while the run measured it |
+| `harness.build` is one of `source`, `bundle`, `binary` | build fails |
+| `machine.concurrentRuns` is an integer `>= 1` | build fails |
+| `machine.concurrentRuns > 1` | imported and kept as evidence, never published: no row, no chart, no delta, no baseline |
+| two runs of one benchmark on one machine id overlap in time | build fails — both were measured on a contended machine |
+| two builds on one machine, measured back to back | two series, the split reported on the page, and no delta crossing it |
 | metrics carry `p50`, `p95`, `samples`, and `p95 >= p50` | build fails |
 | `pr.url` is https and `pr.mergedAt` is a timestamp | run is accepted but is not a leaderboard row |
 | `synthetic: true` | build fails |
 | a `delta` field in a result file | build fails (deltas are computed, not stored) |
 | `finishedAt` before `startedAt` | build fails |
 
+The importer applies the same rules at the point of entry, so a violation is
+refused before a file is written rather than at build time: `npm run
+import-result` refuses an overlapping pair, and prints the series split when a
+machine legitimately changes build type.
+
 ## How deltas are computed
 
-Within a series (one benchmark, one machine), sorted by finish time, each run's
-delta is measured against **the immediately preceding run in that series**.
-Positive means slower; negative means faster. The first run in a series has no
-baseline and shows no delta rather than comparing against itself.
+Within a series (one benchmark, one machine, one build type), sorted by finish
+time, each run's delta is measured against **the immediately preceding run in
+that series**. Positive means slower; negative means faster. The first run in a
+series has no baseline and shows no delta rather than comparing against itself.
 
 This is a deliberate constraint: the site claims exactly one comparison per
-row, and that comparison is always between two runs of the same benchmark on
-the same machine. It does not claim a percentage against some unrelated
-default.
+row, and that comparison is always between two runs of the same benchmark, on
+the same machine, built the same way, where the later run had the machine to
+itself. It does not claim a percentage against some unrelated default.
 
 ## Repository layout
 

@@ -8,8 +8,17 @@
  * the single documented reason `--base` exists.
  */
 
-import { BENCHMARKS, BENCHMARK_DESCRIPTIONS, BENCHMARK_LABELS } from "./schema.mjs";
-import { buildSeries, headline, latestPerSeries, machineFingerprint, primaryMetricName, sortRuns } from "./deltas.mjs";
+import { BENCHMARKS, BENCHMARK_DESCRIPTIONS, BENCHMARK_LABELS, BUILD_TYPE_LABELS } from "./schema.mjs";
+import {
+  buildSeries,
+  buildType,
+  comparableRuns,
+  headline,
+  latestPerSeries,
+  machineFingerprint,
+  primaryMetricName,
+  sortRuns,
+} from "./deltas.mjs";
 import { chartLegend, historyChart, sparkBar } from "./charts.mjs";
 import { cx, deltaDirection, esc, fmtDate, fmtDateTime, fmtDeltaMs, fmtMs, fmtPct, safeHref } from "./html.mjs";
 
@@ -18,7 +27,7 @@ import { cx, deltaDirection, esc, fmtDate, fmtDateTime, fmtDeltaMs, fmtMs, fmtPc
  * @param {string} options.title
  * @param {string} options.active "index" | "changelog"
  * @param {string} options.body
- * @param {{generatedAt: string, runCount: number, publishableCount: number, skippedCount: number, sourceRepo: string, basePath: string}} options.meta
+ * @param {{generatedAt: string, runCount: number, publishableCount: number, skippedCount: number, contendedCount?: number, sourceRepo: string, basePath: string}} options.meta
  */
 export function layout({ title, active, body, meta, preview = false }) {
   const nav = [
@@ -63,9 +72,9 @@ ${body}
 </main>
 <footer class="site-footer">
   <div class="wrap">
-    <p>${meta.publishableCount} measured run${meta.publishableCount === 1 ? "" : "s"} from merged PRs${meta.runCount > meta.publishableCount ? `, ${meta.runCount - meta.publishableCount} pending` : ""}. Built ${esc(meta.generatedAt)}.</p>
-    <p>No number on this site is typed by hand. Every value is read from a harness result file that records the commit, the merged PR, the machine, the versions, and the exact harness command. Deltas are computed at build time from two such files and are never stored.</p>
-    <p>Measurements are only comparable within one machine and one benchmark. Deltas never cross machines. <a href="${esc(safeHref(meta.sourceRepo) ?? "#")}">Harness and result files</a></p>
+    <p>${meta.publishableCount} measured run${meta.publishableCount === 1 ? "" : "s"} from merged PRs${meta.runCount > meta.publishableCount ? `, ${meta.runCount - meta.publishableCount} recorded but not published` : ""}${(meta.contendedCount ?? 0) > 0 ? ` (${meta.contendedCount} measured on a contended machine)` : ""}. Built ${esc(meta.generatedAt)}.</p>
+    <p>No number on this site is typed by hand. Every value is read from a harness result file that records the commit, the merged PR, the machine, the build type, the versions, and the exact harness command. Deltas are computed at build time from two such files and are never stored.</p>
+    <p>Measurements are only comparable within one machine, one benchmark, and one build type. Deltas never cross machines, and no delta crosses a build type or a run measured on a contended machine. <a href="${esc(safeHref(meta.sourceRepo) ?? "#")}">Harness and result files</a></p>
   </div>
 </footer>
 <script src="./assets/app.js" defer></script>
@@ -80,10 +89,10 @@ ${body}
  * @param {{generatedAt: string, sourceRepo: string}} options.meta
  */
 export function renderIndex({ runs, meta, preview = false }) {
-  const publishable = runs.filter((run) => run.publishable);
-  const series = buildSeries(publishable);
+  const comparable = comparableRuns(runs);
+  const series = buildSeries(comparable);
 
-  if (publishable.length === 0) {
+  if (comparable.length === 0) {
     return layout({
       title: "oh-my-pi leaderboard",
       active: "index",
@@ -93,12 +102,13 @@ export function renderIndex({ runs, meta, preview = false }) {
         runCount: runs.length,
         publishableCount: 0,
         skippedCount: runs.length,
+        contendedCount: runs.filter((run) => run.contended).length,
       },
       body: emptyState({
         runs,
         title: "No benchmark has landed on a merged PR yet",
         body:
-          "This page renders itself from harness result files. Until one exists for a merged pull request, there is nothing to plot — and nothing invented to fill the gap. The first merged PR measured by the harness will appear here with its commit, machine, versions, and measured delta.",
+          "This page renders itself from harness result files. Until one exists for a merged pull request, there is nothing to plot — and nothing invented to fill the gap. The first merged PR measured by the harness will appear here with its commit, machine, build type, versions, and measured delta.",
         meta,
       }),
     });
@@ -108,13 +118,22 @@ export function renderIndex({ runs, meta, preview = false }) {
     .map((benchmark) => renderBenchmarkSection(benchmark, series))
     .join("\n");
 
-  const pending = runs.filter((run) => !run.publishable);
+  const pending = runs.filter((run) => !run.publishable && !run.contended);
+  const contended = runs.filter((run) => run.contended);
   const pendingSection =
     pending.length > 0
       ? `<section class="card card-muted">
   <h2>Awaiting merge</h2>
   <p class="muted">These runs are real measurements, but they are not on a merged pull request yet, so they are not leaderboard rows.</p>
   ${runsTable(pending, { caption: "Measurements not yet tied to a merged PR", showDelta: true, emptyNote: null })}
+</section>`
+      : "";
+  const contendedSection =
+    contended.length > 0
+      ? `<section class="card card-muted">
+  <h2>Recorded, not published</h2>
+  <p class="muted">These runs recorded more than one same-benchmark run active on the machine (<code>machine.concurrentRuns &gt; 1</code>), so they were measured on a contended machine. The contract records a noisy run and does not publish it: no row, no chart, no delta, and no baseline for the run after it.</p>
+  ${runsTable(contended, { caption: "Contended measurements, kept as evidence", showDelta: false, emptyNote: null })}
 </section>`
       : "";
 
@@ -125,15 +144,36 @@ export function renderIndex({ runs, meta, preview = false }) {
     meta: {
       ...meta,
       runCount: runs.length,
-      publishableCount: publishable.length,
-      skippedCount: runs.length - publishable.length,
+      publishableCount: comparable.length,
+      skippedCount: runs.length - comparable.length,
+      contendedCount: contended.length,
     },
     body: `<section class="intro">
-  <p class="lede">Cold start is process launch to first interactive frame. Time to render is input to painted frame, reported as p50 and p95 over samples. Both are measured on named machines by a pinned harness command; both are compared only against the previous run on the same machine.</p>
+  <p class="lede">Cold start is process launch to first interactive frame. Time to render is input to painted frame, reported as p50 and p95 over samples. Both are measured on named machines by a pinned harness command; both are compared only against the previous run on the same machine, built the same way, on a machine that had nothing else running.</p>
 </section>
+${integrityNotesSection(meta.integrityNotes)}
 ${sections}
-${pendingSection}`,
+${pendingSection}
+${contendedSection}`,
   });
+}
+
+/**
+ * The visible consequence of a machine changing build type. Not an error: the
+ * history is split into separate series and no delta crosses the split, which
+ * is only honest if the reader can see that it happened.
+ * @param {{kind: string, message: string, runIds: string[]}[]} notes
+ */
+function integrityNotesSection(notes) {
+  if (!Array.isArray(notes) || notes.length === 0) return "";
+  const items = notes.map((note) => `    <li>${esc(note.message)}</li>`).join("\n");
+  return `<section class="card card-muted" id="series-integrity">
+  <h2>Series integrity</h2>
+  <p class="muted">Recorded by the build because a single result file cannot see this on its own.</p>
+  <ul>
+${items}
+  </ul>
+</section>`;
 }
 
 /**
@@ -149,6 +189,7 @@ function renderBenchmarkSection(benchmark, series) {
   <p class="stat-label">Best measured ${esc(BENCHMARK_LABELS[benchmark].toLowerCase())} (p50)</p>
   <p class="stat-value">${esc(fmtMs(head.value))}</p>
   <p class="stat-sub">${esc(head.metric)} on ${esc(head.series.machine.id)} · ${esc(fmtDate(head.series.latest.finishedAt))}</p>
+  <p class="stat-sub">${esc(buildLabel(head.series.build))}</p>
 </div>`
     : `<div class="stat stat-empty">
   <p class="stat-label">${esc(BENCHMARK_LABELS[benchmark])}</p>
@@ -210,18 +251,19 @@ function renderSeriesCard(entry) {
   return `<article class="card">
   <div class="card-head">
     <div>
-      <h3>${esc(entry.machine.id)}</h3>
+      <h3>${esc(entry.machine.id)} · ${esc(buildLabel(entry.build))}</h3>
       <p class="muted">${esc(machineFingerprint(entry.machine))}</p>
+      <p class="muted">Build type is part of the series key, so no delta on this page crosses a build type.</p>
     </div>
     ${sparkBar(firstValue, entry.latest.metrics[metricName]?.p50 ?? null)}
   </div>
   <figure class="chart-figure">
-    ${historyChart({ points: entry.runs, metricName, title: `${BENCHMARK_LABELS[entry.benchmark]} ${metricName} on ${entry.machine.id}` })}
+    ${historyChart({ points: entry.runs, metricName, title: `${BENCHMARK_LABELS[entry.benchmark]} ${metricName} on ${entry.machine.id} (${buildLabel(entry.build)})` })}
     ${chartLegend()}
   </figure>
   <div class="table-scroll">
   <table>
-    <caption class="visually-hidden">${esc(BENCHMARK_LABELS[entry.benchmark])} ${esc(metricName)} history on ${esc(entry.machine.id)}, newest first</caption>
+    <caption class="visually-hidden">${esc(BENCHMARK_LABELS[entry.benchmark])} ${esc(metricName)} history on ${esc(entry.machine.id)}, ${esc(buildLabel(entry.build))}, newest first</caption>
     <thead>
       <tr>
         <th scope="col">Date</th>
@@ -239,8 +281,13 @@ function renderSeriesCard(entry) {
     </tbody>
   </table>
   </div>
-  <p class="provenance">Harness ${esc(entry.latest.harness.version)} · <code>${esc(entry.latest.harness.command)}</code> · ${esc(entry.latest.versions.runtime)} ${esc(entry.latest.versions.runtimeVersion)} · run <code>${esc(entry.latest.runId)}</code></p>
+  <p class="provenance">Harness ${esc(entry.latest.harness.version)} · ${esc(buildLabel(entry.build))} · <code>${esc(entry.latest.harness.command)}</code> · ${esc(entry.latest.versions.runtime)} ${esc(entry.latest.versions.runtimeVersion)} · run <code>${esc(entry.latest.runId)}</code> · head at finish <code>${esc(entry.latest.commit.shaAtFinish ?? "—")}</code></p>
 </article>`;
+}
+
+/** Human label for a build type, falling back to the raw value. */
+function buildLabel(build) {
+  return BUILD_TYPE_LABELS[build] ?? String(build ?? "unknown build");
 }
 
 /**
@@ -264,6 +311,7 @@ function runsTable(runs, { caption, showDelta, emptyNote }) {
   <td>${esc(fmtDate(run.finishedAt))}</td>
   <td>${prUrl ? `<a href="${esc(prUrl)}" rel="noopener noreferrer">#${esc(run.pr.number)}</a>` : `<span class="muted">—</span>`}</td>
   <td><code title="${esc(run.commit.sha)}">${esc(run.commit.sha.slice(0, 7))}</code></td>
+  <td>${esc(buildLabel(buildType(run)))}</td>
   <td class="num">${esc(fmtMs(metric?.p50 ?? null))}</td>
   <td class="num">${esc(fmtMs(metric?.p95 ?? null))}</td>
   <td class="num">${esc(metric?.samples ?? "—")}</td>
@@ -280,6 +328,7 @@ function runsTable(runs, { caption, showDelta, emptyNote }) {
       <th scope="col">Date</th>
       <th scope="col">PR</th>
       <th scope="col">Commit</th>
+      <th scope="col">Build</th>
       <th scope="col" class="num">p50</th>
       <th scope="col" class="num">p95</th>
       <th scope="col" class="num">Samples</th>
@@ -296,14 +345,14 @@ function runsTable(runs, { caption, showDelta, emptyNote }) {
  * @param {{runs: Record<string, any>[], title: string, body: string, meta: {sourceRepo: string}}} options
  */
 export function emptyState({ runs, title, body, meta }) {
-  const pending = runs.filter((run) => !run.publishable);
-  const pendingTable = pending.length > 0
+  const unpublished = runs.filter((run) => !run.publishable || run.contended);
+  const pendingTable = unpublished.length > 0
     ? `<div class="table-scroll">
 <table>
-  <caption>Measured, but not yet on a merged PR</caption>
-  <thead><tr><th scope="col">Date</th><th scope="col">Benchmark</th><th scope="col">Machine</th><th scope="col" class="num">p50</th><th scope="col" class="num">p95</th></tr></thead>
+  <caption>Measured, but not yet a leaderboard row</caption>
+  <thead><tr><th scope="col">Date</th><th scope="col">Benchmark</th><th scope="col">Machine</th><th scope="col">Build</th><th scope="col" class="num">p50</th><th scope="col" class="num">p95</th></tr></thead>
   <tbody>
-  ${sortRuns(pending)
+  ${sortRuns(unpublished)
     .reverse()
     .map((run) => {
       const metricName = primaryMetricName(run);
@@ -312,6 +361,7 @@ export function emptyState({ runs, title, body, meta }) {
   <td>${esc(fmtDate(run.finishedAt))}</td>
   <td>${esc(BENCHMARK_LABELS[run.benchmark] ?? run.benchmark)}</td>
   <td>${esc(run.machine.id)}</td>
+  <td>${esc(buildLabel(buildType(run)))}</td>
   <td class="num">${esc(fmtMs(metric?.p50 ?? null))}</td>
   <td class="num">${esc(fmtMs(metric?.p95 ?? null))}</td>
 </tr>`;
@@ -370,7 +420,7 @@ export function renderChangelog({ changelog, meta, preview = false }) {
   <td class="num ${cx("delta", `delta-${direction}`)}">${esc(fmtPct(m.delta?.p50Pct ?? null))}</td>
   <td class="num">${esc(fmtMs(m.p95))}${m.delta?.p95Ms !== null && m.delta?.p95Ms !== undefined ? ` <span class="delta-abs">(${esc(fmtDeltaMs(m.delta.p95Ms))})</span>` : ""}</td>
   <td class="num">${esc(m.samples)}</td>
-  <td>${esc(m.machineId)}</td>
+  <td>${esc(m.machineId)}<br><span class="muted">${esc(buildLabel(m.build))}</span></td>
 </tr>`;
         })
         .join("\n");

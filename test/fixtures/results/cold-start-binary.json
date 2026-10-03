@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "runId": "fixture-cold-start-binary-run",
+  "benchmark": "cold-start",
+  "startedAt": "2026-05-14T07:00:00.000Z",
+  "finishedAt": "2026-05-14T07:04:48.000Z",
+  "commit": {
+    "sha": "7777777777777777777777777777777777777777",
+    "shaAtFinish": "7777777777777777777777777777777777777777",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "build: ship the prebuilt binary the leaderboard measures from",
+    "note": "First fixture run recorded against the compiled binary rather than a source run. It must land in its own series."
+  },
+  "pr": {
+    "number": 88,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/88",
+    "title": "build: ship the prebuilt binary the leaderboard measures from",
+    "mergedAt": "2026-05-14T07:03:00.000Z"
+  },
+  "machine": {
+    "id": "fixture-linux-x86",
+    "cpuModel": "AMD EPYC 7B12 (fixture)",
+    "physicalCores": 8,
+    "memoryGb": 16,
+    "os": "Ubuntu 24.04 (fixture)",
+    "arch": "x86_64",
+    "concurrentRuns": 1
+  },
+  "versions": {
+    "ohMyPi": "18.5.1",
+    "runtime": "bun",
+    "runtimeVersion": "1.2.21"
+  },
+  "harness": {
+    "build": "binary",
+    "version": "1",
+    "command": "bun scripts/bench/cold-start.ts --runs 20 --binary ./oh-my-pi --fixture",
+    "config": {
+      "runs": 20,
+      "warmupRuns": 2,
+      "coldCache": true
+    }
+  },
+  "metrics": {
+    "firstInteractiveFrameMs": {
+      "unit": "ms",
+      "p50": 1502.6,
+      "p95": 1904.2,
+      "samples": 20,
+      "min": 1401.3,
+      "max": 2010.9
+    }
+  }
+}

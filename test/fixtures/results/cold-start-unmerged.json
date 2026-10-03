@@ -6,6 +6,7 @@
   "finishedAt": "2026-03-20T08:03:40.000Z",
   "commit": {
     "sha": "5555555555555555555555555555555555555555",
+    "shaAtFinish": "5555555555555555555555555555555555555555",
     "repo": "labz-apps/oh-my-pi",
     "message": "perf(tui): warm the snapshot store during boot"
   },
@@ -16,7 +17,8 @@
     "physicalCores": 8,
     "memoryGb": 16,
     "os": "Ubuntu 24.04 (fixture)",
-    "arch": "x86_64"
+    "arch": "x86_64",
+    "concurrentRuns": 1
   },
   "versions": {
     "ohMyPi": "18.5.0",
@@ -24,6 +26,7 @@
     "runtimeVersion": "1.2.21"
   },
   "harness": {
+    "build": "source",
     "version": "1",
     "command": "bun scripts/bench/cold-start.ts --runs 20 --fixture",
     "config": {

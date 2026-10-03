@@ -6,6 +6,7 @@
   "finishedAt": "2026-02-20T14:06:02.000Z",
   "commit": {
     "sha": "3333333333333333333333333333333333333333",
+    "shaAtFinish": "3333333333333333333333333333333333333333",
     "repo": "labz-apps/oh-my-pi",
     "message": "perf(tui): batch input handling into a single frame"
   },
@@ -21,7 +22,8 @@
     "physicalCores": 8,
     "memoryGb": 16,
     "os": "Ubuntu 24.04 (fixture)",
-    "arch": "x86_64"
+    "arch": "x86_64",
+    "concurrentRuns": 1
   },
   "versions": {
     "ohMyPi": "18.4.11",
@@ -29,6 +31,7 @@
     "runtimeVersion": "1.2.21"
   },
   "harness": {
+    "build": "source",
     "version": "1",
     "command": "bun scripts/bench/time-to-render.ts --runs 200 --fixture",
     "config": {

@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "runId": "cold-start-20261003T083757Z-e9zmz",
+  "benchmark": "cold-start",
+  "startedAt": "2026-10-03T08:37:57.118Z",
+  "finishedAt": "2026-10-03T08:43:02.210Z",
+  "commit": {
+    "sha": "99dd7f34e33c55c4c3a4803896eef1f9d749522b",
+    "shaAtFinish": "99dd7f34e33c55c4c3a4803896eef1f9d749522b",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "Merge pull request #3 from labz-apps/bench/cold-start-harness"
+  },
+  "pr": {
+    "number": 3,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/3",
+    "title": "bench: pty-driven cold-start and time-to-render harness",
+    "mergedAt": "2026-10-03T08:36:46Z"
+  },
+  "machine": {
+    "id": "linux-x64-amd-ryzen-5-7600x-6-core-processor-12",
+    "cpuModel": "AMD Ryzen 5 7600X 6-Core Processor",
+    "physicalCores": 12,
+    "memoryGb": 62.36,
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "arch": "x64",
+    "concurrentRuns": 2
+  },
+  "versions": {
+    "ohMyPi": "18.5.0",
+    "runtime": "bun",
+    "runtimeVersion": "1.4.2"
+  },
+  "harness": {
+    "version": "2",
+    "command": "bun scripts/bench/cold-start.ts --runs 20 --json",
+    "build": "source",
+    "config": {
+      "runs": 20,
+      "warmupRuns": 2,
+      "coldCache": true,
+      "timeoutMs": 120000,
+      "quick": false,
+      "percentileEstimator": "nearest-rank",
+      "terminal": {
+        "cols": 120,
+        "rows": 30,
+        "term": "xterm-256color"
+      },
+      "paintBoundary": "dec-2026-synchronized-output-bracket"
+    }
+  },
+  "metrics": {
+    "firstInteractiveFrameMs": {
+      "unit": "ms",
+      "p50": 3167.433,
+      "p95": 3885.246,
+      "samples": 20,
+      "min": 1682.388,
+      "max": 3954.631
+    },
+    "prePaintChainMs": {
+      "unit": "ms",
+      "p50": 7077.376,
+      "p95": 8829.215,
+      "samples": 20,
+      "min": 4322.605,
+      "max": 11780.837
+    }
+  },
+  "diagnostics": {
+    "inputRoundTripMs": {
+      "unit": "ms",
+      "p50": 3051.051,
+      "p95": 4583.928,
+      "samples": 20,
+      "min": 2380.91,
+      "max": 4609.105
+    },
+    "firstTerminalWriteMs": {
+      "unit": "ms",
+      "p50": 3153.589,
+      "p95": 3878.51,
+      "samples": 20,
+      "min": 1674.205,
+      "max": 3947.377
+    },
+    "composerPaintedSamples": 20,
+    "capabilityProbes": {
+      "seen": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "answered": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "treeTotalMs": {
+      "unit": "ms",
+      "p50": 940.2,
+      "p95": 1688.1,
+      "samples": 20,
+      "min": 581.1,
+      "max": 2119.9
+    },
+    "beforeInstrumentationMs": {
+      "unit": "ms",
+      "p50": 5943,
+      "p95": 6741,
+      "samples": 20,
+      "min": 3690,
+      "max": 10602
+    }
+  }
+}

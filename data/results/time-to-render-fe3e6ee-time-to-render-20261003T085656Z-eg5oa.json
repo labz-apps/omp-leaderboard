@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "runId": "time-to-render-20261003T085656Z-eg5oa",
+  "benchmark": "time-to-render",
+  "startedAt": "2026-10-03T08:56:56.549Z",
+  "finishedAt": "2026-10-03T08:57:12.615Z",
+  "commit": {
+    "sha": "fe3e6ee99922c75c128c02a50469d06f12dec26d",
+    "shaAtFinish": "fe3e6ee99922c75c128c02a50469d06f12dec26d",
+    "repo": "labz-apps/oh-my-pi",
+    "message": "Merge pull request #16 from labz-apps/fix/bench-lease-liveness"
+  },
+  "pr": {
+    "number": 3,
+    "url": "https://github.com/labz-apps/oh-my-pi/pull/3",
+    "title": "bench: pty-driven cold-start and time-to-render harness",
+    "mergedAt": "2026-10-03T08:36:46Z"
+  },
+  "machine": {
+    "id": "linux-x64-amd-ryzen-5-7600x-6-core-processor-12",
+    "cpuModel": "AMD Ryzen 5 7600X 6-Core Processor",
+    "physicalCores": 12,
+    "memoryGb": 62.36,
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "arch": "x64",
+    "concurrentRuns": 1
+  },
+  "versions": {
+    "ohMyPi": "18.5.0",
+    "runtime": "bun",
+    "runtimeVersion": "1.4.2"
+  },
+  "harness": {
+    "version": "2",
+    "command": "bun scripts/bench/time-to-render.ts --runs 200 --json",
+    "build": "source",
+    "config": {
+      "runs": 200,
+      "warmupRuns": 0,
+      "coldCache": true,
+      "timeoutMs": 120000,
+      "discardedSettlingSamples": 5,
+      "percentileEstimator": "nearest-rank",
+      "terminal": {
+        "cols": 120,
+        "rows": 30,
+        "term": "xterm-256color"
+      },
+      "paintBoundary": "dec-2026-synchronized-output-bracket",
+      "quick": false
+    }
+  },
+  "metrics": {
+    "inputToPaintMs": {
+      "unit": "ms",
+      "p50": 32.763,
+      "p95": 37.333,
+      "samples": 200,
+      "min": 17.982,
+      "max": 562.805
+    }
+  },
+  "diagnostics": {
+    "firstInteractiveFrameMs": 3364.820004,
+    "inputRoundTripAfterWarmup": {
+      "unit": "ms",
+      "p50": 32.763,
+      "p95": 37.333,
+      "samples": 200,
+      "min": 17.982,
+      "max": 562.805
+    }
+  }
+}

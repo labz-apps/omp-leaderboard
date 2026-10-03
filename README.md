@@ -164,8 +164,11 @@ The loop, end to end:
 2. Import the JSON here. It is validated on the way in and again on every build:
 
    ```bash
-   bun scripts/bench/cold-start.ts --json | npm run import-result -- --stdin --pr 1234
+   bun scripts/bench/cold-start.ts --json | npm run import-result -- --file - --pr 1234
    ```
+
+   `--file -` is not optional: the importer gates on `--file`, so a bare
+   `--stdin` prints a usage error and exits 2 without importing anything.
 
    or, for a merged PR whose measurement you already have as a file:
 

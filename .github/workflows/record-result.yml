@@ -75,8 +75,10 @@ jobs:
 
       - name: Import and validate the result
         run: |
+          # `--file -` is required: the importer gates on `--file`, and a bare
+          # `--stdin` exits 2 with a usage error while importing nothing.
           npm run import-result -- \
-            --stdin \
+            --file - \
             --pr "${{ inputs.pr }}" \
             --pr-title "${{ inputs.pr-title }}" \
             --repo "${{ inputs.fork }}" \

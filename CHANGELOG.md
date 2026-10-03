@@ -11,6 +11,14 @@ measurements within one release, and nobody can tell which entries were real.
 
 ## Unreleased
 
+- Fixed the documented import command, which imported nothing.
+  `npm run import-result -- --stdin --pr <n>` prints a usage error and exits 2:
+  `bin/import-result.mjs` gates on `--file`, and `--stdin` never sets it. The
+  working form is `--file -`. This also silently broke `record-result.yml`, the
+  automated measure → import → pull-request path, which passed `--stdin` and
+  redirected a file into it, so the workflow could never have written a result
+  file. The `--file` gate itself is left alone; the docs and the workflow now
+  pass the flag it actually requires.
 - Initial site: static generator with no runtime dependencies, inline SVG
   history charts, per-machine series, computed deltas, generated changelog,
   graceful empty state, and a Pages deploy workflow.

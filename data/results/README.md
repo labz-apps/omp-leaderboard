@@ -5,18 +5,21 @@ Every file here is a harness result that satisfies the contract in
 pull request it belongs to, the machine, the versions, the exact harness
 command, and the samples.
 
-This directory is empty until the harness (OHM-3, in the oh-my-pi fork) has run
-against a merged pull request. Until then the site builds, serves, and explains
-that there is nothing to show yet — it does not fill the gap with an estimate,
-a target, or a number from a README.
+This directory fills up as the harness (in the oh-my-pi fork) runs against a
+merged pull request. Until it does, the site builds, serves, and explains that
+there is nothing to show yet — it does not fill the gap with an estimate, a
+target, or a number from a README.
 
 ## Adding a file
 
 Do not write one by hand. Pipe the harness output into the importer:
 
 ```bash
-bun scripts/bench/cold-start.ts --json | npm run import-result -- --stdin --pr 1234
+bun scripts/bench/cold-start.ts --json | npm run import-result -- --file - --pr 1234
 ```
+
+`--file -` is required. The importer gates on `--file`, so `--stdin` on its own
+prints a usage error and exits 2 while importing nothing.
 
 Or let CI do it: run the **record-result** workflow with the ref and merged PR
 number, and it opens the pull request for you.

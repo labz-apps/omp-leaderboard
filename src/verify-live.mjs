@@ -36,7 +36,10 @@ export const LIVE_CHECKS = [
  * @returns {Promise<{ok: boolean, failures: string[], results: any[]}>}
  */
 export async function checkLiveSite(baseUrl) {
-  const root = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  // Normalize: the deployment output already ends in a slash, and a caller that
+  // adds another would otherwise check `//` paths that some proxies treat as
+  // protocol-relative rather than as the site root.
+  const root = `${String(baseUrl).trim().replace(/\/+$/, "")}/`;
   /** @type {string[]} */
   const failures = [];
   /** @type {any[]} */

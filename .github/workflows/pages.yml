@@ -70,4 +70,4 @@ jobs:
       # deploy succeeds and the live site serves README.md. Check the bytes a
       # browser would actually receive, and fail this run if they are wrong.
       - name: Verify the live site serves the build
-        run: node src/verify-live.mjs --url "${{ steps.deployment.outputs.page_url }}/"
+        run: node src/verify-live.mjs --url "${{ steps.deployment.outputs.page_url }}"

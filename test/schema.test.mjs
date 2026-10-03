@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { BENCHMARKS, assertValidResultDoc, isPublishableRun, validateResultDoc } from "../src/schema.mjs";
+import { BENCHMARKS, BUILD_TYPE_LIST, assertValidResultDoc, countsTowardSeries, isContendedRun, isPublishableRun, validateResultDoc } from "../src/schema.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "fixtures", "results");
@@ -114,4 +114,79 @@ test("both documented benchmarks validate", async () => {
 test("only runs with a merged PR are publishable", async () => {
   assert.equal(isPublishableRun(await fixture("cold-start-merged-pr-42.json")), true);
   assert.equal(isPublishableRun(await fixture("cold-start-unmerged.json")), false);
+});
+
+// --- build type: the held-constant rule the file must be able to prove ------
+
+test("every documented build type is accepted", async () => {
+  assert.deepEqual(BUILD_TYPE_LIST.slice().sort(), ["binary", "bundle", "source"]);
+  for (const build of BUILD_TYPE_LIST) {
+    const doc = await validResult();
+    doc.harness.build = build;
+    assert.doesNotThrow(() => assertValidResultDoc(doc, "test"));
+  }
+});
+
+test("rejects a result that does not say which build was measured", async () => {
+  const doc = await validResult();
+  delete doc.harness.build;
+  const result = validateResultDoc(doc, "test");
+  assert.equal(result.ok, false);
+  assert.match(result.problems.join(" "), /harness\.build is required/);
+});
+
+test("rejects a build type outside the closed set", async () => {
+  const doc = await validResult();
+  doc.harness.build = "wasm";
+  const result = validateResultDoc(doc, "test");
+  assert.equal(result.ok, false);
+  assert.match(result.problems.join(" "), /harness\.build is required and must be one of/);
+});
+
+// --- run integrity: the working tree and the machine ------------------------
+
+test("rejects a result with no head recorded at finish", async () => {
+  const doc = await validResult();
+  delete doc.commit.shaAtFinish;
+  const result = validateResultDoc(doc, "test");
+  assert.equal(result.ok, false);
+  assert.match(result.problems.join(" "), /commit\.shaAtFinish is required/);
+});
+
+test("rejects a run whose working tree moved while it measured", async () => {
+  const doc = await validResult();
+  doc.commit.shaAtFinish = "9999999999999999999999999999999999999999";
+  const result = validateResultDoc(doc, "test");
+  assert.equal(result.ok, false);
+  assert.match(result.problems.join(" "), /differs from commit\.sha/);
+});
+
+test("rejects a result with no concurrency count", async () => {
+  const doc = await validResult();
+  delete doc.machine.concurrentRuns;
+  const result = validateResultDoc(doc, "test");
+  assert.equal(result.ok, false);
+  assert.match(result.problems.join(" "), /machine\.concurrentRuns is required/);
+});
+
+test("rejects a concurrency count below one", async () => {
+  const doc = await validResult();
+  doc.machine.concurrentRuns = 0;
+  const result = validateResultDoc(doc, "test");
+  assert.equal(result.ok, false);
+  assert.match(result.problems.join(" "), /machine\.concurrentRuns is required/);
+});
+
+test("a run measured alongside another run is recorded but never published", async () => {
+  const solo = await fixture("cold-start-merged-pr-42.json");
+  assert.equal(isContendedRun(solo), false);
+  assert.equal(countsTowardSeries(solo), true);
+
+  const contended = await fixture("cold-start-contended.json");
+  assert.equal(isContendedRun(contended), true, "concurrentRuns 2 was not treated as contention");
+  assert.equal(isPublishableRun(contended), true, "it is on a merged PR");
+  assert.equal(countsTowardSeries(contended), false, "a contended run must not reach a series");
+
+  const unmerged = await fixture("cold-start-unmerged.json");
+  assert.equal(countsTowardSeries(unmerged), false, "a run with no merged PR must not reach a series");
 });

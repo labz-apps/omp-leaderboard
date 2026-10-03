@@ -18,6 +18,28 @@ export const BENCHMARKS = /** @type {const} */ ({
   TIME_TO_RENDER: "time-to-render",
 });
 
+/**
+ * The build type a run measured: what program was launched.
+ *
+ * The contract holds build type constant inside a series, so it has to be a
+ * recorded field. A source run (`bun scripts/bench/...`), the published npm
+ * bundle, and a compiled binary are three different programs; a series key that
+ * omits this field can fold all three into one comparison.
+ */
+export const BUILD_TYPES = /** @type {const} */ ({
+  SOURCE: "source",
+  BUNDLE: "bundle",
+  BINARY: "binary",
+});
+
+export const BUILD_TYPE_LIST = Object.values(BUILD_TYPES);
+
+export const BUILD_TYPE_LABELS = {
+  [BUILD_TYPES.SOURCE]: "source run",
+  [BUILD_TYPES.BUNDLE]: "npm bundle",
+  [BUILD_TYPES.BINARY]: "compiled binary",
+};
+
 export const BENCHMARK_LABELS = {
   [BENCHMARKS.COLD_START]: "Cold start",
   [BENCHMARKS.TIME_TO_RENDER]: "Time to render",
@@ -123,6 +145,21 @@ export function validateResultDoc(doc, source = "result") {
     if (doc.commit.message !== undefined && typeof doc.commit.message !== "string") {
       push("commit.message must be a string when present");
     }
+    // The tree the harness measured can move underneath it: a rebase landing in
+    // the shared checkout, a branch switch, a `git pull`. `sha` alone records
+    // what was true when the run started, so the harness also records the head
+    // it saw at the end and the two must agree. A file that says otherwise is
+    // two builds wearing one sha, and it fails rather than publishing a delta
+    // against whichever half of it happens to be true.
+    if (typeof doc.commit.shaAtFinish !== "string" || !SHA_RE.test(doc.commit.shaAtFinish)) {
+      push(
+        "commit.shaAtFinish is required (7-40 character lowercase hex): the head the harness saw when the run finished",
+      );
+    } else if (typeof doc.commit.sha === "string" && doc.commit.shaAtFinish !== doc.commit.sha) {
+      push(
+        `commit.shaAtFinish (${doc.commit.shaAtFinish}) differs from commit.sha (${doc.commit.sha}): the working tree moved during the run, so the measurement does not belong to one commit`,
+      );
+    }
   }
 
   // --- merged PR provenance ---------------------------------------------
@@ -169,6 +206,16 @@ export function validateResultDoc(doc, source = "result") {
     if (typeof doc.machine.arch !== "string" || doc.machine.arch.trim() === "") {
       push("machine.arch is required");
     }
+    // The programme shares one checkout, and one machine, across agents. Two
+    // runs of the same benchmark on the same machine that overlap in time share
+    // CPU, so both numbers are worse and neither is comparable to anything. The
+    // harness leases the machine for the duration of a run and records how many
+    // same-benchmark runs it found active; 1 means it had the machine to itself.
+    if (!Number.isInteger(doc.machine.concurrentRuns) || doc.machine.concurrentRuns < 1) {
+      push(
+        "machine.concurrentRuns is required (integer >= 1): same-benchmark runs active on this machine during this run, including this one",
+      );
+    }
   }
 
   // --- versions ----------------------------------------------------------
@@ -195,6 +242,15 @@ export function validateResultDoc(doc, source = "result") {
     }
     if (typeof doc.harness.command !== "string" || doc.harness.command.trim() === "") {
       push("harness.command must be the exact command that produced these numbers");
+    }
+    // Which program was launched. Held constant inside a series, so it is part
+    // of the series key rather than a note: a source run, the npm bundle, and a
+    // compiled binary are three different programs, and a delta between two of
+    // them measures the packaging rather than the change.
+    if (!BUILD_TYPE_LIST.includes(doc.harness.build)) {
+      push(
+        `harness.build is required and must be one of ${BUILD_TYPE_LIST.join(", ")} (got ${JSON.stringify(doc.harness.build ?? null)})`,
+      );
     }
   }
 
@@ -249,6 +305,40 @@ export function assertValidResultDoc(doc, source = "result") {
  */
 export function isPublishableRun(doc) {
   return isPlainObject(doc.pr) && typeof doc.pr.url === "string" && isIsoTimestamp(doc.pr.mergedAt);
+}
+
+/**
+ * A run that shared its machine with another run of the same benchmark.
+ *
+ * The contract's answer to a noisy run is "record it, do not publish it", so a
+ * contended run stays in `data/results/` as evidence and is excluded from the
+ * leaderboard, the charts, the deltas, and the changelog. It must not become a
+ * baseline either: the next run on that machine would be compared against a
+ * number inflated by whoever was competing for the CPU.
+ * @param {Record<string, any>} doc
+ */
+export function isContendedRun(doc) {
+  return Number.isInteger(doc?.machine?.concurrentRuns) && doc.machine.concurrentRuns > 1;
+}
+
+/**
+ * A run that may appear as a row and may serve as the next run's baseline:
+ * merged PR recorded, and measured on a machine it had to itself.
+ * @param {Record<string, any>} doc
+ */
+export function countsTowardSeries(doc) {
+  return isPublishableRun(doc) && !isContendedRun(doc);
+}
+
+/** Human-readable reason a validated run is not a leaderboard row. */
+export function unpublishableReason(doc) {
+  if (isContendedRun(doc)) {
+    return `measured on a contended machine (${doc.machine.concurrentRuns} same-benchmark runs were active), so it is recorded but never published`;
+  }
+  if (!isPublishableRun(doc)) {
+    return "no merged PR yet, so it cannot appear as a leaderboard row";
+  }
+  return null;
 }
 
 /** Stable, human-readable short sha for display. */

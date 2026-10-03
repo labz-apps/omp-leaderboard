@@ -24,7 +24,7 @@ on:
       benchmark:
         description: "cold-start | time-to-render"
         required: true
-      type: choice
+        type: choice
         options: [cold-start, time-to-render]
       pr:
         description: "Merged pull request number the measurement belongs to"

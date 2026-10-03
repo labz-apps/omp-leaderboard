@@ -1,0 +1,18 @@
+{
+  "name": "omp-leaderboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Leaderboard and changelog for oh-my-pi cold-start and time-to-render benchmarks. Static site, no server.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node src/build.mjs",
+    "test": "node --test",
+    "serve": "node src/serve.mjs",
+    "verify": "node src/verify.mjs",
+    "import-result": "node bin/import-result.mjs"
+  }
+}

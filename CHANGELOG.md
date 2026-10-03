@@ -35,7 +35,7 @@ measurements within one release, and nobody can tell which entries were real.
   delta between them instead of one misleading comparison. A machine that changes
   build type reports the split on the page. Measured delta: **none** — this
   touches no code on the startup or render path; it changes what the site is
-  willing to claim. Pull request: [#2](https://github.com/labz-apps/omp-leaderboard/pull/2).
+  willing to claim. Pull request: [#4](https://github.com/labz-apps/omp-leaderboard/pull/4).
 - **Run integrity is now recorded and enforced.** `commit.shaAtFinish` records
   the head the harness saw when the run ended and must equal `commit.sha`, so a
   measurement of a tree that moved underneath it (a rebase landing in the shared

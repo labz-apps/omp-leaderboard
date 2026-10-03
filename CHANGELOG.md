@@ -24,6 +24,10 @@ measurements within one release, and nobody can tell which entries were real.
 - Workflow tests assert the deploy wiring, permissions, triggers, and that every
   script a workflow calls actually exists — the classic silent failure where a
   workflow calls a renamed script and only fails after merge.
+- `npm run verify:live` checks a real URL over HTTP after the deploy, and runs
+  as a post-deploy step in `pages.yml`. Added after Pages was found configured
+  for branch builds: the deploy job reported success on every run while the live
+  site served `README.md` and 404'd every built path.
 
 ## Reading the generated changelog
 

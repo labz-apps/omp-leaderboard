@@ -14,6 +14,7 @@
     "serve": "node src/serve.mjs",
     "verify": "node src/verify.mjs",
     "import-result": "node bin/import-result.mjs",
-    "deploy:gh-pages": "node src/deploy-gh-pages.mjs"
+    "deploy:gh-pages": "node src/deploy-gh-pages.mjs",
+    "verify:live": "node src/verify-live.mjs"
   }
 }

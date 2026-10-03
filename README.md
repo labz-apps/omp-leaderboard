@@ -33,10 +33,11 @@ being true.
 There is no install step: nothing to fetch, nothing to build.
 
 ```bash
-npm run build     # generate dist/ from data/results/
-npm run verify    # the full gate (see below)
-npm test          # unit tests only
-npm run serve     # serve dist/ locally at http://127.0.0.1:4321/
+npm run build       # generate dist/ from data/results/
+npm run verify      # the full local gate (see below)
+npm run verify:live -- --url https://labz-apps.github.io/omp-leaderboard/
+npm test            # unit tests only
+npm run serve       # serve dist/ locally at http://127.0.0.1:4321/
 ```
 
 ### `npm run verify`
@@ -62,6 +63,34 @@ This is the local stand-in for "the Pages site serves". It runs, in order:
 
 Fixtures build into `.verify/`, never into `dist/`.
 
+### `npm run verify:live`
+
+A deploy can succeed and still serve the wrong thing, and that is not
+hypothetical: this repository was configured with Pages on branch builds,
+`actions/deploy-pages` reported success on every run, and the live site served
+`README.md` from the repository root while `/changelog.html` returned 404. Every
+build-time check passed, because the artifact was correct — it simply was not
+what GitHub served.
+
+So the last gate runs against a real URL, after the deploy, over HTTP:
+
+```
+/                          200  text/html          built index, relative assets
+/index.html                200  text/html
+/changelog.html            200  text/html
+/assets/styles.css         200  text/css
+/assets/app.js             200  javascript
+/assets/favicon.svg        200  image/svg+xml
+/data/leaderboard.json     200  application/json   parses, has schemaVersion
+/<bogus path>              404  text/html           the 404 fallback works
+```
+
+It also re-checks the served HTML for root-relative asset paths, because the
+live site is where that mistake actually costs you. Transient CDN lag is retried
+(`--retries`, `--retry-delay-ms`); genuinely wrong content is not hidden by those
+retries. `pages.yml` runs it as a post-deploy step, so a deploy that does not
+take effect fails the workflow instead of quietly reporting success.
+
 ## Deploying to GitHub Pages
 
 One-time setup, in the repository settings: **Settings → Pages → Build and
@@ -71,8 +100,12 @@ supplies the artifact.
 `main` → `.github/workflows/pages.yml`:
 
 ```
-push to main  →  npm run verify  →  node src/build.mjs --base "$BASE_PATH"  →  upload-pages-artifact  →  deploy-pages
+push to main  →  npm run verify  →  node src/build.mjs --base "$BASE_PATH"
+              →  upload-pages-artifact  →  deploy-pages  →  verify:live
 ```
+
+The last step is the important one: it fetches the deployed URL and fails the
+run if those bytes are not the build.
 
 `BASE_PATH` comes from `actions/configure-pages`, so a project site at
 `https://<owner>.github.io/<repo>/` works with no configuration. Pushes to
@@ -221,7 +254,8 @@ src/schema.mjs       the result contract, enforced at import and at build
 src/deltas.mjs       comparability rules and delta computation
 src/build.mjs        static generator (the deploy entry point)
 src/render.mjs       page rendering, including every empty state
-src/verify.mjs       the gate described above
+src/verify.mjs       the local gate described above
+src/verify-live.mjs  the post-deploy gate: checks a real URL over HTTP
 src/serve.mjs        a static server that mimics the GitHub Pages behaviour we rely on
 bin/import-result.mjs  validate-and-write importer
 test/fixtures/       fixture results, built into .verify/ and never into dist/

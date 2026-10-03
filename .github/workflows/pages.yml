@@ -56,5 +56,18 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      # A green deploy job does not mean the site is serving the build. Pages
+      # can be pointed at the branch root instead of the artifact, in which case
+      # deploy succeeds and the live site serves README.md. Check the bytes a
+      # browser would actually receive, and fail this run if they are wrong.
+      - name: Verify the live site serves the build
+        run: node src/verify-live.mjs --url "${{ steps.deployment.outputs.page_url }}/"

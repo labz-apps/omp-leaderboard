@@ -1,0 +1,60 @@
+# Build the static leaderboard and publish it to GitHub Pages.
+#
+# There is no server anywhere in this pipeline: `npm run build` writes plain
+# files, and the deploy step uploads that directory as a Pages artifact. The
+# Pages base path is derived by actions/configure-pages, so the same workflow
+# works for a user/org site and for a project site without edits.
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify (unit tests, build, serve, degradation, no hand-entered numbers)
+        run: npm run verify
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build static site
+        env:
+          # `actions/configure-pages` resolves the deployment base path for us,
+          # which is what makes a project Pages site (/<repo>/) work unchanged.
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: node src/build.mjs --base "$BASE_PATH" --source-repo "${{ github.server_url }}/${{ github.repository }}/tree/main"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

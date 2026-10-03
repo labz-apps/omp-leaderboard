@@ -1,0 +1,38 @@
+# Gate pull requests that add or change a measurement.
+#
+# This runs the same verification CI runs for the deploy, so a result file that
+# would break the site (or that carries a hand-edited number) fails here rather
+# than in the published build.
+
+name: validate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: npm run verify
+        run: npm run verify
+
+      - name: Confirm the diff contains no build output
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -E '^(dist|\.verify)/'; then
+            echo "::error::build output must not be committed"
+            exit 1
+          fi

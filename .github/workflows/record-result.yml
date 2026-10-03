@@ -1,0 +1,101 @@
+# Measure a merged oh-my-pi improvement and propose the result file.
+#
+# This is the path that keeps numbers out of human hands: the harness command
+# runs in CI on the oh-my-pi fork at a given ref, its JSON output is piped
+# straight into the importer, and the importer refuses anything that is
+# malformed, synthetic, or missing provenance. The only inputs a human supplies
+# are a ref and a merged PR number.
+#
+# Requires the benchmark harness from the oh-my-pi fork (OHM-3). Until it lands,
+# this workflow fails with a clear message rather than inventing a measurement.
+
+name: record-result
+
+on:
+  workflow_dispatch:
+    inputs:
+      fork:
+        description: "Fork that holds the harness (owner/name)"
+        required: true
+        default: labz-apps/oh-my-pi
+      ref:
+        description: "Commit or tag in the fork to measure"
+        required: true
+      benchmark:
+        description: "cold-start | time-to-render"
+        required: true
+      type: choice
+        options: [cold-start, time-to-render]
+      pr:
+        description: "Merged pull request number the measurement belongs to"
+        required: true
+      pr-title:
+        description: "Title of that pull request (used in the changelog)"
+        required: true
+      runs:
+        description: "Sample count passed to the harness"
+        required: true
+        default: "20"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Check out the measured revision
+        run: |
+          git clone --depth 1 --branch "${{ inputs.ref }}" "https://github.com/${{ inputs.fork }}.git" measured
+          echo "HARNESS_DIR=measured" >> "$GITHUB_ENV"
+
+      - name: Run the harness
+        id: harness
+        working-directory: ${{ env.HARNESS_DIR }}
+        run: |
+          set -euo pipefail
+          script="scripts/bench/${{ inputs.benchmark }}.ts"
+          if [ ! -f "$script" ]; then
+            echo "::error::harness script $script does not exist in ${{ inputs.fork }}@${{ inputs.ref }} (OHM-3 not merged yet)"
+            exit 1
+          fi
+          bun "$script" --runs "${{ inputs.runs }}" --json > "$GITHUB_WORKSPACE/result.json"
+          test -s "$GITHUB_WORKSPACE/result.json"
+
+      - name: Import and validate the result
+        run: |
+          npm run import-result -- \
+            --stdin \
+            --pr "${{ inputs.pr }}" \
+            --pr-title "${{ inputs.pr-title }}" \
+            --repo "${{ inputs.fork }}" \
+            < result.json
+
+      - name: Open a pull request with the result file
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: result/${{ inputs.benchmark }}-${{ inputs.pr }}
+          title: "bench: ${{ inputs.benchmark }} for PR #${{ inputs.pr }}"
+          commit-message: "bench: ${{ inputs.benchmark }} for ${{ inputs.fork }}@${{ inputs.ref }} (#${{ inputs.pr }})"
+          body: |
+            Adds the `${{ inputs.benchmark }}` measurement for
+            [`${{ inputs.fork }}@${{ inputs.ref }}`](https://github.com/${{ inputs.fork }}/commit/${{ inputs.ref }})
+            merged as PR [#${{ inputs.pr }}](https://github.com/${{ inputs.fork }}/pull/${{ inputs.pr }}).
+
+            The numbers were produced by the harness in CI, not typed here:
+            see the `harness.command` field in the result file. `npm run verify`
+            re-checks the file, rebuilds the site, and confirms it still serves.
+
+          add-paths: data/results
+          delete-branch: true
